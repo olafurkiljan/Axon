@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Axon</title>
+<meta name="theme-color" content="#0E0E10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Axon">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Fraunces:opsz,wght@9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E0E10; --surface:#17171B; --raised:#1F1F24; --line:#26262C;
+  --text:#F4F1EA; --muted:#A8A49A; --faint:#7C7972;
+  --accent:#E4572E; --accent-ink:#14100E; --accent-bg:#211510; --accent-line:#7A3A22; --accent-soft:#C98A6E;
+  --good-bg:#14271C; --good-line:#3E7D57; --good:#4FB477;
+  --bad-bg:#2A1618; --bad-line:#7A3438; --bad:#E5787C;
+  --display:'Fraunces',Georgia,'Times New Roman',serif;
+  --body:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+.app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:560px;margin:0 auto}
+header{flex-shrink:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 20px 10px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-family:'Bricolage Grotesque',var(--body);font-size:26px;font-weight:800;letter-spacing:-.03em}
+.brand svg{width:34px;height:20px;flex-shrink:0}
+.updated{background:none;border:none;font-size:12px;color:var(--faint);padding:10px 0 10px 12px;min-height:44px;cursor:pointer}
+
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+.view[hidden]{display:none}
+
+/* pull to refresh */
+.ptr{position:absolute;left:0;right:0;top:0;height:0;display:flex;align-items:center;justify-content:center;gap:8px;overflow:hidden;font-size:12px;font-weight:600;color:var(--faint);pointer-events:none;z-index:1}
+.ptr.ready,.ptr.busy{color:var(--accent)}
+.ptr svg{transition:transform .15s}
+.ptr.ready svg{transform:rotate(180deg)}
+.ptr.busy svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.feed{padding:4px 20px 28px;display:flex;flex-direction:column;gap:14px;will-change:transform}
+.feed.settle{transition:transform .25s ease}
+
+.top{display:block;background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:20px;padding:18px;margin-bottom:6px}
+.top .flag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--accent-ink);background:var(--accent);border-radius:999px;padding:4px 10px}
+.top h2{margin:12px 0 10px;font-family:var(--display);font-size:23px;line-height:1.2;font-weight:600}
+.top .meta{color:var(--accent-soft)}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.section-head h3{margin:0;font-size:15px;font-weight:600;color:var(--muted)}
+.section-head span{font-size:12px;color:var(--faint)}
+.card{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 16px}
+.card:active,.top:active{opacity:.8}
+.card.fresh{border-color:var(--accent-line)}
+.card h4{margin:0;font-size:16px;line-height:1.32;font-weight:600}
+.meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.new{font-size:11px;font-weight:700;color:var(--accent)}
+.sources{margin:8px 4px 0;font-size:12px;line-height:1.5;color:var(--faint)}
+.state{padding:48px 12px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
+.state strong{display:block;color:var(--text);font-size:16px;margin-bottom:6px}
+.skeleton{height:92px;border-radius:14px;background:linear-gradient(90deg,var(--surface),var(--raised),var(--surface));background-size:200% 100%;animation:shimmer 1.2s infinite}
+@keyframes shimmer{to{background-position:-200% 0}}
+
+/* quiz */
+.quiz{padding:4px 20px 28px;display:flex;flex-direction:column;gap:16px}
+.progress{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+.bar{flex:1;height:6px;border-radius:3px;background:var(--raised);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.qcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px;display:flex;flex-direction:column;gap:16px}
+.qkind{font-size:12px;font-weight:600;color:var(--muted)}
+.qcard h2{margin:0;font-family:var(--display);font-size:21px;line-height:1.28;font-weight:600}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 16px;min-height:48px;border-radius:14px;background:var(--raised);border:1px solid #2E2E35;font-size:15px;font-weight:500;line-height:1.35;cursor:pointer}
+.opt:disabled{cursor:default}
+.opt.right{background:var(--good-bg);border-color:var(--good-line)}
+.opt.wrong{background:var(--bad-bg);border-color:var(--bad-line)}
+.opt.dim{background:var(--surface);border-color:var(--line);color:#8A867C}
+.why{padding:14px 16px;border-radius:14px;font-size:13px;line-height:1.45;color:#C7C3B8}
+.why b{display:block;color:var(--text);font-size:14px;margin-bottom:4px}
+.why.good{background:var(--good-bg);border:1px solid var(--good-line)}
+.why.bad{background:var(--accent-bg);border:1px solid var(--accent-line)}
+.primary{align-self:stretch;min-height:50px;border:none;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer}
+.score{font-family:var(--display);font-size:56px;font-weight:700;line-height:1;margin:8px 0}
+.streak{display:inline-flex;align-items:center;gap:6px;background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--accent)}
+
+nav{flex-shrink:0;display:flex;border-top:1px solid var(--line);background:#131316;padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px)}
+nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;min-height:52px;font-size:11px;font-weight:600;color:var(--faint);cursor:pointer}
+nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-selected="true"]{color:var(--accent)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><svg viewBox="40 140 432 144" aria-hidden="true"><circle cx="146" cy="212" r="92" fill="#F3EFE6"/><circle cx="366" cy="212" r="92" fill="#F3EFE6"/><circle cx="256" cy="164" r="13" fill="#E4572E"/><circle cx="256" cy="212" r="13" fill="#E4572E"/><circle cx="256" cy="260" r="13" fill="#E4572E"/></svg>axon</div>
+    <button class="updated" id="updated" aria-label="Refresh news">Loading…</button>
+  </header>
+
+  <main>
+    <section class="view" id="newsView" aria-label="News">
+      <div class="ptr" id="ptr" aria-live="polite">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        <span id="ptrLabel">Pull to refresh</span>
+      </div>
+      <div class="feed" id="feed"></div>
+    </section>
+
+    <section class="view" id="quizView" aria-label="Quiz" hidden>
+      <div class="quiz" id="quiz"></div>
+    </section>
+  </main>
+
+  <nav role="tablist">
+    <button role="tab" id="tabNews" aria-selected="true">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg>News
+    </button>
+    <button role="tab" id="tabQuiz" aria-selected="false">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17h.01"/></svg>Quiz
+    </button>
+  </nav>
+</div>
+
+<script>
+/* ---------------- storage helpers ---------------- */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------------- news ---------------- */
+// news.json is written every ~20 min by the GitHub Action (scripts/fetch-news.mjs).
+let stories = store.get('axon.stories', []);
+let sources = store.get('axon.sources', []);
+let lastUpdated = store.get('axon.updated', 0);   // when the server last fetched the feeds (ms)
+let lastChecked = 0;                              // when this device last checked (ms)
+let seenIds = new Set(stories.map(s => s.id));
+let loading = false;
+
+const $ = id => document.getElementById(id);
+const feedEl = $('feed');
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function ago(sec){
+  const d = Math.max(0, Date.now()/1000 - sec);
+  if (d < 60) return 'just now';
+  if (d < 3600) return Math.floor(d/60) + ' min ago';
+  if (d < 86400) return Math.floor(d/3600) + ' hr ago';
+  return Math.floor(d/86400) + ' d ago';
+}
+
+async function fetchNews(){
+  const res = await fetch('news.json?ts=' + Date.now(), {cache:'no-store'});
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function refresh(){
+  if (loading) return;
+  loading = true;
+  setPtr('busy');
+  $('updated').textContent = 'Refreshing…';
+  if (!stories.length) renderSkeleton();
+  try{
+    const data = await fetchNews();
+    const firstLoad = !stories.length;
+    const fresh = (data.items || []).map(s => Object.assign({}, s, {isNew: !firstLoad && !seenIds.has(s.id)}));
+    stories = fresh;
+    sources = data.sources || [];
+    seenIds = new Set(fresh.map(s => s.id));
+    lastUpdated = (data.generatedAt || 0) * 1000;
+    lastChecked = Date.now();
+    store.set('axon.stories', stories);
+    store.set('axon.sources', sources);
+    store.set('axon.updated', lastUpdated);
+    renderFeed();
+  }catch(e){
+    renderFeed(stories.length ? null : 'offline');
+  }finally{
+    loading = false;
+    setPtr('idle');
+    updateStamp();
+  }
+}
+
+function updateStamp(){
+  $('updated').textContent = lastUpdated ? 'Updated ' + ago(lastUpdated/1000) : 'Tap to refresh';
+}
+
+function renderSkeleton(){
+  feedEl.innerHTML = '<div class="skeleton" style="height:150px"></div>' + '<div class="skeleton"></div>'.repeat(4);
+}
+
+function renderFeed(error){
+  if (error === 'offline'){
+    feedEl.innerHTML = `<div class="state"><strong>No connection</strong>News couldn't be loaded. Pull down to try again once you're online.</div>`;
+    return;
+  }
+  if (!stories.length){
+    feedEl.innerHTML = `<div class="state"><strong>No AI stories right now</strong>Pull down to check again.</div>`;
+    return;
+  }
+  const top = stories[0];
+  const rest = stories.slice(1);
+  const newCount = rest.filter(s => s.isNew).length;
+  const okSources = sources.filter(s => s.ok).map(s => s.source);
+
+  feedEl.innerHTML = `
+    <a class="top" href="${esc(top.url)}" target="_blank" rel="noopener">
+      <span class="flag">Just in</span>
+      <h2>${esc(top.title)}</h2>
+      <div class="meta"><span>${esc(top.source)}</span><span>${ago(top.t)}</span></div>
+    </a>
+    <div class="section-head"><h3>Latest</h3><span>${newCount ? newCount + ' new' : rest.length + ' stories'}</span></div>
+    ${rest.map(s => `
+      <a class="card${s.isNew ? ' fresh' : ''}" href="${esc(s.url)}" target="_blank" rel="noopener">
+        <h4>${esc(s.title)}</h4>
+        <div class="meta">${s.isNew ? '<span class="new">New</span>' : ''}<span>${esc(s.source)}</span><span>${ago(s.t)}</span></div>
+      </a>`).join('')}
+    ${okSources.length ? `<p class="sources">From ${esc(okSources.join(', '))}. Tap a story to read it on the outlet's site.</p>` : ''}
+  `;
+}
+
+/* ---------------- pull to refresh ---------------- */
+const newsView = $('newsView'), ptr = $('ptr'), ptrLabel = $('ptrLabel');
+const TRIGGER = 70, MAX = 110;
+let startY = null, pull = 0;
+
+function setPtr(mode){
+  ptr.classList.toggle('ready', mode === 'ready');
+  ptr.classList.toggle('busy', mode === 'busy');
+  if (mode === 'busy'){ place(56, true); ptrLabel.textContent = 'Refreshing…'; }
+  else if (mode === 'ready'){ ptrLabel.textContent = 'Release to refresh'; }
+  else { place(0, true); ptrLabel.textContent = 'Pull to refresh'; }
+}
+function place(px, animate){
+  feedEl.classList.toggle('settle', !!animate);
+  feedEl.style.transform = px ? `translateY(${px}px)` : '';
+  ptr.style.height = px + 'px';
+}
+newsView.addEventListener('touchstart', e => {
+  if (loading || newsView.scrollTop > 0) { startY = null; return; }
+  startY = e.touches[0].clientY; pull = 0;
+}, {passive:true});
+newsView.addEventListener('touchmove', e => {
+  if (startY === null) return;
+  const d = e.touches[0].clientY - startY;
+  if (d <= 0 || newsView.scrollTop > 0){ pull = 0; place(0); return; }
+  e.preventDefault();
+  pull = Math.min(MAX, d * 0.5);
+  place(pull);
+  ptr.classList.toggle('ready', pull >= TRIGGER);
+  ptrLabel.textContent = pull >= TRIGGER ? 'Release to refresh' : 'Pull to refresh';
+}, {passive:false});
+newsView.addEventListener('touchend', () => {
+  if (startY === null) return;
+  startY = null;
+  if (pull >= TRIGGER) refresh(); else setPtr('idle');
+  pull = 0;
+});
+$('updated').addEventListener('click', refresh);
+
+/* ---------------- quiz ---------------- */
+const BANK = [
+  {q:'What does "LLM" stand for?', a:'Large language model', w:['Linear logic machine','Learned language memory','Layered learning model'], why:'An LLM is a model trained on huge amounts of text to predict and generate language.'},
+  {q:'In a language model, what is a "token"?', a:'A chunk of text, like a word or part of a word', w:['A password the model uses to log in','One full sentence','A unit of electricity used per answer'], why:'Models read and write text as tokens. Long or rare words are often split into several.'},
+  {q:'What is a model\u2019s "context window"?', a:'How much text it can consider at once', w:['The app window it runs in','How long it was trained for','The list of websites it can visit'], why:'Everything in the conversation, plus any documents, has to fit inside the context window.'},
+  {q:'Which 2017 paper introduced the Transformer architecture?', a:'Attention Is All You Need', w:['Deep Residual Learning','ImageNet Classification with Deep CNNs','Playing Atari with Deep RL'], why:'The Transformer, from Google researchers in 2017, is the basis of today\u2019s large language models.'},
+  {q:'When an AI "hallucinates", it\u2026', a:'Confidently states something that isn\u2019t true', w:['Generates an image by mistake','Crashes and restarts','Refuses to answer'], why:'Hallucinations are fluent but false outputs, which is why checking sources matters.'},
+  {q:'What does RLHF stand for?', a:'Reinforcement learning from human feedback', w:['Rapid language handling framework','Recursive layer high-frequency','Real-time learning from hardware'], why:'People rate model answers, and the model is trained toward the kind of answers they preferred.'},
+  {q:'An "open-weight" model is one where\u2026', a:'The trained model files can be downloaded and run by anyone', w:['Anyone can edit the training data','It has no safety rules','It runs only in a web browser'], why:'Open-weight means the parameters are published, so you can run the model on your own hardware.'},
+  {q:'Which company makes Claude?', a:'Anthropic', w:['OpenAI','Google','Meta'], why:'Claude is made by Anthropic. OpenAI makes ChatGPT, Google makes Gemini and Meta makes Llama.'},
+  {q:'What is a "prompt injection" attack?', a:'Hidden instructions in content that hijack what an AI does', w:['Overloading a server with prompts','Stealing a model\u2019s weights','Typing very long prompts to slow it down'], why:'For example, a web page can contain hidden text telling an AI agent that reads it to do something else.'},
+  {q:'"Fine-tuning" a model means\u2026', a:'Training an existing model further on specific data', w:['Adjusting the screen brightness','Deleting parts of the model','Asking it the same question twice'], why:'Fine-tuning adapts a general model to a narrower task, tone or domain.'},
+  {q:'Why are GPUs used to train AI models?', a:'They do huge numbers of calculations in parallel', w:['They have more storage than hard drives','They connect to the internet faster','They use less electricity than any other chip'], why:'Training is mostly matrix math, which GPUs can run thousands of operations of at the same time.'},
+  {q:'In AI, "inference" means\u2026', a:'Running a trained model to get an answer', w:['Training a model from scratch','Collecting training data','Guessing which model someone used'], why:'Training builds the model. Inference is every time you actually use it.'},
+  {q:'A "multimodal" model can\u2026', a:'Work with more than one kind of input, like text and images', w:['Run on several phones at once','Speak many languages only','Switch between multiple personalities'], why:'Multimodal models can take in, and sometimes produce, text, images, audio or video.'},
+  {q:'What does RAG stand for?', a:'Retrieval-augmented generation', w:['Random answer generator','Recursive attention graph','Rapid AI grading'], why:'RAG looks up relevant documents first and gives them to the model, so answers can draw on sources it wasn\u2019t trained on.'},
+  {q:'What makes an AI an "agent"?', a:'It takes actions with tools to reach a goal, not just chat', w:['It has a human name','It works for a government','It answers faster than a chatbot'], why:'Agents can browse, run code or use apps across many steps, which is also why containing them matters.'}
+];
+
+function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function newsQuestions(n){
+  // "Which outlet published this?" using real headlines, with other real outlets as options
+  const outlets = [...new Set(stories.map(s => s.source))];
+  if (outlets.length < 4) return [];
+  return shuffle(stories).slice(0, n).map(s => ({
+    kind:'From today\u2019s news',
+    q:`Which outlet published \u201c${s.title}\u201d?`,
+    a:s.source,
+    w:shuffle(outlets.filter(x => x !== s.source)).slice(0,3),
+    why:`It was published by ${s.source}. Open the News tab to read it.`
+  }));
+}
+
+let quiz = null;
+const quizEl = $('quiz');
+
+function startQuiz(){
+  const news = newsQuestions(2);
+  const concepts = shuffle(BANK).slice(0, 5 - news.length).map(x => Object.assign({kind:'AI basics'}, x));
+  const qs = shuffle(news.concat(concepts)).map(x => Object.assign({}, x, {options: shuffle([x.a].concat(x.w))}));
+  quiz = {qs, i:0, score:0, picked:null};
+  renderQuiz();
+}
+
+function streakInfo(){ return store.get('axon.streak', {count:0, last:null}); }
+function bumpStreak(){
+  const today = new Date().toDateString();
+  const s = streakInfo();
+  if (s.last === today) return s;
+  const y = new Date(Date.now()-86400000).toDateString();
+  const next = {count: s.last === y ? s.count + 1 : 1, last: today};
+  store.set('axon.streak', next);
+  return next;
+}
+
+function renderQuiz(){
+  const {qs, i, picked} = quiz;
+  if (i >= qs.length){
+    const s = bumpStreak();
+    quizEl.innerHTML = `
+      <div class="qcard" style="align-items:flex-start">
+        <div class="qkind">Round complete</div>
+        <div class="score">${quiz.score}/${qs.length}</div>
+        <span class="streak">${s.count}-day streak</span>
+        <button class="primary" id="again">Start a new round</button>
+      </div>`;
+    $('again').onclick = startQuiz;
+    return;
+  }
+  const q = qs[i];
+  const answered = picked !== null;
+  const right = picked === q.a;
+  quizEl.innerHTML = `
+    <div class="progress"><div class="bar"><i style="width:${(i/qs.length)*100}%"></i></div><span>Question ${i+1} of ${qs.length}</span></div>
+    <div class="qcard">
+      <div class="qkind">${esc(q.kind)}</div>
+      <h2>${esc(q.q)}</h2>
+      <div class="opts">
+        ${q.options.map((o,k) => {
+          let cls = '';
+          if (answered){ cls = o === q.a ? 'right' : (o === picked ? 'wrong' : 'dim'); }
+          return `<button class="opt ${cls}" data-k="${k}" ${answered ? 'disabled' : ''}>${esc(o)}</button>`;
+        }).join('')}
+      </div>
+      ${answered ? `<div class="why ${right ? 'good' : 'bad'}"><b>${right ? 'Correct' : 'Not quite'}</b>${esc(q.why)}</div>
+      <button class="primary" id="next">${i === qs.length-1 ? 'See score' : 'Next question'}</button>` : ''}
+    </div>`;
+  quizEl.querySelectorAll('.opt').forEach(b => b.onclick = () => {
+    quiz.picked = q.options[+b.dataset.k];
+    if (quiz.picked === q.a) quiz.score++;
+    renderQuiz();
+  });
+  if (answered) $('next').onclick = () => { quiz.i++; quiz.picked = null; renderQuiz(); $('quizView').scrollTop = 0; };
+}
+
+/* ---------------- tabs ---------------- */
+function show(tab){
+  const news = tab === 'news';
+  $('newsView').hidden = !news; $('quizView').hidden = news;
+  $('tabNews').setAttribute('aria-selected', news); $('tabQuiz').setAttribute('aria-selected', !news);
+  if (!news && !quiz) startQuiz();
+}
+$('tabNews').onclick = () => show('news');
+$('tabQuiz').onclick = () => show('quiz');
+
+/* ---------------- boot ---------------- */
+if (stories.length){ stories.forEach(s => s.isNew = false); renderFeed(); updateStamp(); }
+refresh();
+setInterval(updateStamp, 60000);
+document.addEventListener('visibilitychange', () => {
+  // refresh when reopened after 15+ min, so the feed isn't stale
+  if (document.visibilityState === 'visible' && Date.now() - lastUpdated > 15*60000) refresh();
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
