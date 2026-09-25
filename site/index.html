@@ -154,6 +154,46 @@ html[data-theme="plum"]{
 .swatch .preview b{align-self:flex-start;display:block;width:26px;height:10px;border-radius:5px}
 .sheet .done{margin-top:16px;width:100%;min-height:50px;border:none;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.sheet,.sheet-back{transition:none}}
+
+.refresh-btn{display:none}
+.card.selected,.top.selected{border-color:var(--accent)}
+.article-inner{max-width:720px;margin:0 auto}
+.pane-empty{padding:80px 20px;text-align:center;color:var(--faint);font-size:15px}
+
+/* ---------- desktop / wide screens ---------- */
+@media (min-width:900px){
+  .app{max-width:1280px}
+  header{padding:14px 28px;border-bottom:1px solid var(--line);min-height:68px}
+  .refresh-btn{display:flex}
+  .updated{padding-right:4px}
+  nav{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);
+      border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;background:var(--surface)}
+  nav button{flex-direction:row;min-height:38px;padding:0 18px;border-radius:999px;font-size:14px;gap:8px}
+  nav svg{width:18px;height:18px}
+  nav button[aria-selected="true"]{background:var(--accent-bg)}
+  #newsView{right:auto;width:420px;border-right:1px solid var(--line)}
+  .feed{padding:18px 18px 32px}
+  .top h2{font-size:21px}
+  .card h4{font-size:15px}
+  .ptr{display:none}
+  .article{position:absolute;top:0;bottom:0;left:420px;right:0;max-width:none;margin:0;transform:none;visibility:visible;transition:none;z-index:1}
+  .app[data-tab="quiz"] .article{display:none}
+  .article-bar{display:none}
+  .article-body{padding:44px 56px 64px}
+  .article-body h1{font-size:38px;line-height:1.15;margin-bottom:24px}
+  .article-body .summary{font-size:19px;line-height:1.65}
+  .article-body figure{aspect-ratio:2.2/1}
+  .readfull{display:inline-flex;padding:0 26px}
+  .article-note{text-align:left}
+  .quiz{max-width:640px;margin:0 auto;padding:36px 20px}
+  .sheet{left:50%;right:auto;bottom:auto;top:50%;width:440px;border-radius:22px;border:1px solid var(--line);
+         padding:22px 24px 24px;transform:translate(-50%,-46%);opacity:0;transition:transform .2s ease,opacity .2s ease}
+  .sheet.open{transform:translate(-50%,-50%);opacity:1}
+  .grab{display:none}
+  .card,.top{cursor:pointer}
+  .card:hover{border-color:var(--raised-line)}
+  .card.selected:hover{border-color:var(--accent)}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 <script>
@@ -168,11 +208,14 @@ html[data-theme="plum"]{
 </script>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" data-tab="news">
   <header>
     <div class="brand"><svg viewBox="40 140 432 144" aria-hidden="true"><circle cx="146" cy="212" r="92" fill="currentColor"/><circle cx="366" cy="212" r="92" fill="currentColor"/><circle cx="256" cy="164" r="13" fill="#E4572E"/><circle cx="256" cy="212" r="13" fill="#E4572E"/><circle cx="256" cy="260" r="13" fill="#E4572E"/></svg>axon</div>
     <div class="head-right">
       <button class="updated" id="updated" aria-label="Refresh news">Loading…</button>
+      <button class="icon-btn refresh-btn" id="refreshBtn" aria-label="Refresh news" title="Refresh">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>
+      </button>
       <button class="icon-btn" id="themeBtn" aria-label="Change color theme">
         <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.8-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="8" r="1"/></svg>
       </button>
@@ -191,6 +234,13 @@ html[data-theme="plum"]{
     <section class="view" id="quizView" aria-label="Quiz" hidden>
       <div class="quiz" id="quiz"></div>
     </section>
+
+    <section class="article" id="article" aria-label="Story" aria-hidden="true">
+  <div class="article-bar">
+    <button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>News</button>
+  </div>
+  <div class="article-body" id="articleBody"></div>
+</section>
   </main>
 
   <nav role="tablist">
@@ -211,12 +261,7 @@ html[data-theme="plum"]{
   <button class="done" id="sheetDone">Done</button>
 </div>
 
-<section class="article" id="article" aria-label="Story" aria-hidden="true">
-  <div class="article-bar">
-    <button class="back" id="backBtn"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>News</button>
-  </div>
-  <div class="article-body" id="articleBody"></div>
-</section>
+
 
 <script>
 /* ---------------- storage helpers ---------------- */
@@ -289,6 +334,7 @@ function renderSkeleton(){
 }
 
 function renderFeed(error){
+  setTimeout(() => { if (typeof syncPane === 'function') syncPane(); }, 0);
   if (error === 'offline'){
     feedEl.innerHTML = `<div class="state"><strong>No connection</strong>News couldn't be loaded. Pull down to try again once you're online.</div>`;
     return;
@@ -457,22 +503,26 @@ function renderQuiz(){
 
 /* ---------------- article page ---------------- */
 const articleEl = $('article'), articleBody = $('articleBody');
+const wide = window.matchMedia('(min-width: 900px)');
+let currentId = null;
 function openArticle(id, push){
   const s = stories.find(x => x.id === id);
   if (!s) return;
-  articleBody.innerHTML = `
+  currentId = id;
+  feedEl.querySelectorAll('a[data-id]').forEach(a => a.classList.toggle('selected', a.dataset.id === id));
+  articleBody.innerHTML = `<div class="article-inner">
     <div class="meta"><span>${esc(s.source)}</span><span>${ago(s.t)}</span></div>
     <h1>${esc(s.title)}</h1>
     ${s.image ? `<figure><img src="${esc(s.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></figure>` : ''}
     ${s.summary ? `<p class="summary">${esc(s.summary)}</p>` : `<p class="summary nosummary">${esc(s.source)} didn't include a summary for this story.</p>`}
     <a class="readfull" href="${esc(s.url)}" target="_blank" rel="noopener">Read full story on ${esc(s.source)}
       <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-    <p class="article-note">Opens ${esc(s.source)}'s website.</p>`;
+    <p class="article-note">Opens ${esc(s.source)}'s website.</p></div>`;
   articleBody.scrollTop = 0;
   articleEl.classList.add('open');
   articleEl.setAttribute('aria-hidden','false');
-  if (push) history.pushState({article:id}, '');
-  $('backBtn').focus({preventScroll:true});
+  if (push && !wide.matches) history.pushState({article:id}, '');
+  if (!wide.matches) $('backBtn').focus({preventScroll:true});
 }
 function closeArticle(){
   articleEl.classList.remove('open');
@@ -485,6 +535,15 @@ feedEl.addEventListener('click', e => {
   if (Math.abs(pullMoved) > 8) return;   // it was a pull-to-refresh drag, not a tap
   openArticle(a.dataset.id, true);
 });
+// On wide screens the reading pane is always visible: keep a story selected.
+function syncPane(e){
+  if (!wide.matches){ if (e) closeArticle(); return; }
+  if (!stories.length){ articleBody.innerHTML = '<p class="pane-empty">Stories will appear here.</p>'; return; }
+  if (!currentId || !stories.some(s => s.id === currentId)) openArticle(stories[0].id, false);
+  else feedEl.querySelectorAll('a[data-id]').forEach(a => a.classList.toggle('selected', a.dataset.id === currentId));
+}
+wide.addEventListener('change', syncPane);
+$('refreshBtn').addEventListener('click', refresh);
 $('backBtn').addEventListener('click', () => { if (history.state && history.state.article) history.back(); else closeArticle(); });
 window.addEventListener('popstate', e => { if (e.state && e.state.article) openArticle(e.state.article, false); else closeArticle(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && articleEl.classList.contains('open')) $('backBtn').click(); });
@@ -535,6 +594,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('sheet')
 function show(tab){
   const news = tab === 'news';
   $('newsView').hidden = !news; $('quizView').hidden = news;
+  $('app').dataset.tab = tab;
   $('tabNews').setAttribute('aria-selected', news); $('tabQuiz').setAttribute('aria-selected', !news);
   if (!news && !quiz) startQuiz();
 }
