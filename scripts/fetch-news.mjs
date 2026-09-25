@@ -53,6 +53,37 @@ function link(block) {
   const g = tag(block, 'guid');
   return /^https?:\/\//.test(g) ? g : '';
 }
+
+// Short summary the outlet provides in its feed (never the full article):
+// cut to ~300 characters at a word boundary, and strip feed boilerplate.
+const SUMMARY_MAX = 300;
+function summarize(block) {
+  let raw = tag(block, 'description') || tag(block, 'summary') || tag(block, 'content');
+  raw = raw
+    .replace(/The post .{0,300}? appeared first on .{0,80}?\.?$/i, '')
+    .replace(/\s*Continue reading\.{0,3}\s*$/i, '')
+    .replace(/\s*(Read more|Read the full story).{0,40}$/i, '')
+    .trim();
+  if (raw.length <= SUMMARY_MAX) return raw;
+  const cut = raw.slice(0, SUMMARY_MAX);
+  const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
+  return end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, '') + '…';
+}
+function image(block) {
+  const pats = [
+    /<media:content\b[^>]*\burl=["']([^"']+)["'][^>]*\bmedium=["']image["']/i,
+    /<media:content\b[^>]*\bmedium=["']image["'][^>]*\burl=["']([^"']+)["']/i,
+    /<media:thumbnail\b[^>]*\burl=["']([^"']+)["']/i,
+    /<media:content\b[^>]*\burl=["']([^"']+\.(?:jpe?g|png|webp)[^"']*)["']/i,
+    /<enclosure\b[^>]*\burl=["']([^"']+)["'][^>]*\btype=["']image\//i,
+    /<enclosure\b[^>]*\btype=["']image\/[^"']*["'][^>]*\burl=["']([^"']+)["']/i,
+  ];
+  for (const re of pats) { const m = block.match(re); if (m && /^https:\/\//.test(decode(m[1]))) return decode(m[1]); }
+  // first <img> inside the description/content, if any
+  const m = block.match(/(?:<|&lt;)img\b[^>]*?\bsrc=(?:["']|&quot;|&#34;)(https:\/\/[^"'&<>\s]+)/i);
+  return m ? decode(m[1]) : '';
+}
+
 export function parseFeed(xml, feed) {
   const blocks = xml.match(/<item\b[\s\S]*?<\/item>/gi) || xml.match(/<entry\b[\s\S]*?<\/entry>/gi) || [];
   const out = [];
@@ -63,7 +94,7 @@ export function parseFeed(xml, feed) {
     const t = Math.floor(Date.parse(when) / 1000);
     if (!title || !url || !Number.isFinite(t)) continue;
     if (!feed.aiOnly && !AI_RE.test(title)) continue;
-    out.push({ title, url, source: feed.source, t });
+    out.push({ title, url, source: feed.source, t, summary: summarize(b), image: image(b) });
   }
   return out;
 }
