@@ -597,7 +597,10 @@ function show(tab){
   $('tabNews').setAttribute('aria-selected', news); $('tabQuiz').setAttribute('aria-selected', !news);
   if (!news && !quiz) startQuiz();
 }
-$('tabNews').onclick = () => show('news');
+// Tapping News (again, or coming back from Quiz) scrolls the story list to the top.
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+function scrollNewsToTop(){ newsView.scrollTo({top:0, behavior: reduceMotion.matches ? 'auto' : 'smooth'}); }
+$('tabNews').onclick = () => { show('news'); scrollNewsToTop(); };
 $('tabQuiz').onclick = () => show('quiz');
 
 /* ---------------- boot ---------------- */
