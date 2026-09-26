@@ -69,7 +69,28 @@ function summarize(block) {
   const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? '), cut.lastIndexOf('! '));
   return end > 120 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, '') + '…';
 }
+function attrs(tagText) {
+  const out = {};
+  for (const m of tagText.matchAll(/([\w:-]+)\s*=\s*(["'])([\s\S]*?)\2/g)) out[m[1].toLowerCase()] = decode(m[3]);
+  return out;
+}
+// Feeds like The Guardian list the same picture in several sizes (width="140", width="460").
+// Pick the widest media:content / media:thumbnail image; without widths, use the order below.
+function widestMedia(block) {
+  let best = null;
+  for (const m of block.matchAll(/<media:(content|thumbnail)\b[^>]*>/gi)) {
+    const a = attrs(m[0]);
+    const w = parseInt(a.width, 10);
+    if (!/^https:\/\//.test(a.url || '') || !Number.isFinite(w)) continue;
+    const isImage = m[1].toLowerCase() === 'thumbnail' || a.medium === 'image' || /^image\//i.test(a.type || '')
+                 || (!a.medium && !a.type && /\.(?:jpe?g|png|webp)(?:[?#]|$)/i.test(a.url));
+    if (isImage && (!best || w > best.w)) best = { url: a.url, w };
+  }
+  return best ? best.url : '';
+}
 function image(block) {
+  const widest = widestMedia(block);
+  if (widest) return widest;
   const pats = [
     /<media:content\b[^>]*\burl=["']([^"']+)["'][^>]*\bmedium=["']image["']/i,
     /<media:content\b[^>]*\bmedium=["']image["'][^>]*\burl=["']([^"']+)["']/i,
