@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#0E0E10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Axon">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -155,9 +155,6 @@ html[data-theme="plum"]{
 .sheet .done{margin-top:16px;width:100%;min-height:50px;border:none;border-radius:14px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.sheet,.sheet-back{transition:none}}
 
-/* iPhone Home Screen: stretch full-screen layers down to the real bottom (--ios-gap is set by fixIosGap) */
-.app,.article,.sheet,.sheet-back{bottom:calc(-1 * var(--ios-gap,0px))}
-
 .refresh-btn{display:none}
 .card.selected,.top.selected{border-color:var(--accent)}
 .article-inner{max-width:720px;margin:0 auto}
@@ -203,7 +200,9 @@ html[data-theme="plum"]{
 (function(){ try{
   var t = JSON.parse(localStorage.getItem('axon.theme')) || 'dark';
   if (t !== 'dark') document.documentElement.setAttribute('data-theme', t);
-  // iOS status bar: dark text on the light theme, light text otherwise (read when the app launches)
+  // iOS status bar: dark text on the light theme, light text otherwise (read when the app launches).
+  // Solid, not "black-translucent": from the Home Screen, iOS draws a translucent-bar app from the top
+  // of the screen but still shortens it by the status bar's height, cutting off the bottom (the tab bar).
   if (t === 'light') document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content','default');
   var bg = {dark:'#0E0E10', light:'#F3EFE6', midnight:'#0B1220', plum:'#120E16'}[t];
   if (bg) document.querySelector('meta[name="theme-color"]').setAttribute('content', bg);
@@ -603,23 +602,6 @@ function show(tab){
 }
 $('tabNews').onclick = () => show('news');
 $('tabQuiz').onclick = () => show('quiz');
-
-/* ---------------- iPhone Home Screen gap ---------------- */
-// Opened from the Home Screen, iOS can make full-screen layers stop short of the bottom
-// (by the status bar's height). Measure the shortfall and stretch them by it (CSS: --ios-gap).
-// Does nothing in Safari, on desktop, or once iOS reports the full height.
-const gapProbe = document.createElement('div');
-gapProbe.style.cssText = 'position:fixed;top:0;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none';
-document.body.appendChild(gapProbe);
-function fixIosGap(){
-  if (!navigator.standalone || !matchMedia('(pointer: coarse)').matches) return;
-  const landscape = matchMedia('(orientation: landscape)').matches;
-  const screenH = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
-  const gap = screenH - gapProbe.offsetHeight;
-  document.documentElement.style.setProperty('--ios-gap', (gap > 0 && gap <= 80 ? gap : 0) + 'px');
-}
-fixIosGap();
-window.addEventListener('resize', () => { fixIosGap(); setTimeout(fixIosGap, 300); });   // re-check after rotating
 
 /* ---------------- boot ---------------- */
 if (stories.length){ stories.forEach(s => s.isNew = false); renderFeed(); updateStamp(); }
